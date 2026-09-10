@@ -1,0 +1,30 @@
+{
+  "name": "zeko-code",
+  "version": "1.2.0",
+  "description": "Zeko Code — AI Coding Agent web app chạy trên ZekoCode v1.2 (Aurora): SSE streaming, preview/copy/download code, React + Node.js full stack.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "train": "node scripts/train-zeko.js",
+    "bump": "node scripts/bump-version.js",
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"node server/index.js --dev\" \"vite --config client/vite.config.js\"",
+    "build": "vite build --config client/vite.config.js",
+    "start": "node server/index.js",
+    "preview": "npm run build && node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "highlight.js": "^11.10.0",
+    "marked": "^9.1.6"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.8"
+  }
+}

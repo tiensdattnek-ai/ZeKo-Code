@@ -1,0 +1,7 @@
+{
+  "model": "ZekoCode",
+  "version": "1.2",
+  "codename": "Aurora",
+  "released_at": "2026-09-10",
+  "changelog": "v1.2 — Aurora: 16 knowledge shards, classifier vector hóa, follow-up context, extension patches"
+}
