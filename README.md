@@ -26,7 +26,7 @@ tải code — tất cả trong một app Node không cần build step.
 ```bash
 npm install
 npm start          # http://localhost:8787 — 4 API key đã có sẵn, không cần setup
-npm test           # 65 test: unit + server e2e + UI e2e (jsdom)
+npm test           # 64 test: unit + server e2e + UI e2e (jsdom)
 ```
 
 Không có bước build: frontend là ES module thuần, thư viện được serve thẳng từ
@@ -145,7 +145,7 @@ Chạy hoàn toàn không credential (CI/demo): `ZEKO_NO_KEYS=1 npm start`.
 
 ## 9. Phím tắt
 
-`Enter` gửi · `Shift Enter` xuống dòng · `Ctrl K` command palette · `Ctrl N` chat mới ·
+`Enter` gửi · `Shift Enter` xuống dòng · `Ctrl N` chat mới ·
 `Ctrl B` sidebar · `Ctrl J` workbench · `Ctrl ,` cấu hình · `Ctrl S` lưu file đang mở ·
 `Esc` dừng / đóng modal · `/help` xem lệnh trong ô nhập.
 
@@ -171,19 +171,19 @@ public/
   js/workbench.mjs       file tree, editor, preview, diff LCS, telemetry
   js/transport.mjs       server ↔ browser-direct
   js/store.mjs           state + localStorage + export/import
-  js/ui.mjs              toast, modal, palette, settings, status bar
+  js/ui.mjs              toast, modal, settings, status bar
 test/
   fusion.test.mjs        26 unit test (mock fetch): rotation, failover, fusion, diff…
   config.test.mjs        7 test: seed ghép đúng fingerprint, ưu tiên env > file > seed
   server.e2e.test.mjs    7 test HTTP thật: SSE relay, CRUD, chặn traversal
-  ui.e2e.test.mjs        21 test jsdom: chạy thẳng public/js/app.js
+  ui.e2e.test.mjs        20 test jsdom: chạy thẳng public/js/app.js
   ui.nokeys.e2e.test.mjs 4 test: boot khi không có key → tự mở Cấu hình
 ```
 
 ## 11. Test
 
 ```bash
-npm test     # 65 test
+npm test     # 64 test
 ```
 
 Ba tầng, không mock lại logic đã ship:
@@ -194,7 +194,7 @@ Ba tầng, không mock lại logic đã ship:
    đúng giao thức OpenAI-SSE, rồi đọc lại SSE từ `/api/chat`.
 3. **UI e2e** — jsdom nạp `public/index.html`, stub global của trình duyệt, mock 2 upstream,
    rồi `import` chính `public/js/app.js`: gửi tin nhắn → 2 lane → hợp nhất → code card →
-   file vào workspace → preview srcdoc → copy/download → editor → diff → palette.
+   file vào workspace → preview srcdoc → copy/download → editor → diff.
 
 ## 12. Giấy phép & ghi công
 

@@ -7,7 +7,7 @@ import { extractArtifacts, applyDiff, workspaceDigest } from '../shared/artifact
 import { store, restore, newSession, openSession, deleteSession, renameSession, setFile, clearFiles, persist, activeSession, sessionToMarkdown, exportAll, importAll } from './store.mjs';
 import { transport } from './transport.mjs';
 import { mountMarkdown, mountMarkdownSoon, initCardActions } from './render.mjs';
-import { toast, openModal, confirmBox, openSettings, openPalette, closePalette, setStatus, setFootStats, renderHealth, bindUiChrome, closeModal } from './ui.mjs';
+import { toast, openModal, confirmBox, openSettings, setStatus, setFootStats, renderHealth, bindUiChrome, closeModal } from './ui.mjs';
 import {
   wb, bindFileTree, bindEditor, bindPreview, bindTabs, renderFileTree, openFile, renderPreview, renderDiff,
   pushTelemetry, resetTelemetry, switchPane, download, downloadZip, refreshAll, esc, paintEditor,
@@ -129,12 +129,11 @@ function bindChrome() {
 
   document.addEventListener('keydown', (e) => {
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
-    else if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); startNewChat(); }
+    if (mod && e.key.toLowerCase() === 'n') { e.preventDefault(); startNewChat(); }
     else if (mod && e.key.toLowerCase() === 'b') { e.preventDefault(); $('#app').classList.toggle('no-sidebar'); }
     else if (mod && e.key.toLowerCase() === 'j') { e.preventDefault(); $('#app').classList.toggle('no-wb'); }
     else if (mod && e.key.toLowerCase() === ',') { e.preventDefault(); openSettings(); }
-    else if (e.key === 'Escape') { closePalette(); closeModal(); }
+    else if (e.key === 'Escape') { closeModal(); }
     else if (e.key === 'Escape' && state.busy) stopTurn();
   });
 
@@ -468,7 +467,7 @@ const SLASH = [
   ['/help', 'Liệt kê lệnh', () => openModal({
     title: 'Lệnh tắt',
     body: `<ul style="margin:0;padding-left:1.1em;line-height:2">${SLASH.map(([c, d]) => `<li><code>${esc(c)}</code> — ${esc(d)}</li>`).join('')}</ul>
-      <p class="hint-t" style="margin-top:12px">Phím tắt: <kbd>Enter</kbd> gửi · <kbd>Shift Enter</kbd> xuống dòng · <kbd>Ctrl K</kbd> lệnh · <kbd>Ctrl N</kbd> chat mới · <kbd>Ctrl B</kbd> sidebar · <kbd>Ctrl J</kbd> workbench · <kbd>Ctrl ,</kbd> cấu hình · <kbd>Esc</kbd> dừng/đóng</p>`,
+      <p class="hint-t" style="margin-top:12px">Phím tắt: <kbd>Enter</kbd> gửi · <kbd>Shift Enter</kbd> xuống dòng · <kbd>Ctrl N</kbd> chat mới · <kbd>Ctrl B</kbd> sidebar · <kbd>Ctrl J</kbd> workbench · <kbd>Ctrl ,</kbd> cấu hình · <kbd>Esc</kbd> dừng/đóng</p>`,
   })],
 ];
 

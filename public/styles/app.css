@@ -533,8 +533,8 @@ kbd {
 .sb-key.cool { border-color: rgba(255,204,102,.4); color: var(--warn); }
 .sb-key.dead { border-color: rgba(255,93,115,.4); color: var(--danger); text-decoration: line-through; }
 
-/* ───────────────────────── modal / palette / toasts ───────────────────────── */
-.modal-backdrop, .palette-backdrop {
+/* ───────────────────────── modal / toasts ───────────────────────── */
+.modal-backdrop {
   position: fixed; inset: 0; background: rgba(4,6,10,.7); backdrop-filter: blur(5px);
   display: grid; place-items: center; z-index: 60; animation: fade .18s ease;
 }
@@ -571,15 +571,6 @@ kbd {
 .switch.on { background: rgba(34,211,167,.25); border-color: rgba(34,211,167,.5); }
 .switch.on::after { left: 20px; background: var(--accent); }
 
-.palette { width: min(620px, 94vw); background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); animation: pop .2s; }
-.palette-input { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-bottom: 1px solid var(--line); }
-.palette-input svg { color: var(--muted); }
-.palette-input input { flex: 1; background: none; border: 0; outline: none; font-size: 15px; }
-.palette-list { list-style: none; margin: 0; padding: 6px; max-height: 56vh; overflow-y: auto; }
-.palette-list li { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 9px; cursor: pointer; font-size: 13px; color: var(--text-2); }
-.palette-list li.sel { background: var(--grad-soft); color: var(--text); }
-.palette-list li svg { width: 15px; height: 15px; color: var(--muted); flex: none; }
-.palette-list li .k { margin-left: auto; }
 
 .toasts { position: fixed; right: 16px; bottom: 42px; display: flex; flex-direction: column; gap: 8px; z-index: 80; }
 .toast {

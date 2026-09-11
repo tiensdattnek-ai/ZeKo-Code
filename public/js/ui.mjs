@@ -1,10 +1,10 @@
 /**
- * ZeKo Code — UI chrome: toasts, modal, command palette, settings, status bar.
+ * ZeKo Code — UI chrome: toasts, modal, settings, status bar.
  */
 
 import { store, persist, exportAll, importAll, sessionToMarkdown, activeSession } from './store.mjs';
 import { transport, saveLocalOverrides } from './transport.mjs';
-import { download, downloadZip, refreshAll, esc, renderFileTree, resetTelemetry, openFile, switchPane } from './workbench.mjs';
+import { download, downloadZip, refreshAll, esc, renderFileTree } from './workbench.mjs';
 
 const $ = (s) => document.querySelector(s);
 
@@ -227,80 +227,6 @@ export function openSettings() {
 
 const keyRow = (k) => `<div class="key-edit"><input value="${esc(k)}" placeholder="sk-…" spellcheck="false" /><button class="icon-btn danger" data-rmkey title="Xoá key"><svg><use href="#i-trash"/></svg></button></div>`;
 
-/* ─────────────────────────── command palette ─────────────────────────── */
-
-let paletteItems = [];
-let paletteSel = 0;
-
-export function openPalette() {
-  $('#paletteBackdrop').hidden = false;
-  $('#paletteInput').value = '';
-  buildPalette('');
-  setTimeout(() => $('#paletteInput')?.focus(), 20);
-}
-export function closePalette() { $('#paletteBackdrop').hidden = true; }
-
-function buildPalette(q) {
-  const cmds = [
-    { icon: 'i-plus', label: 'Cuộc chat mới', run: () => window.dispatchEvent(new Event('zeko:new')) },
-    { icon: 'i-layers', label: 'Chế độ: Fusion (2 model hợp nhất)', run: () => setMode('fusion') },
-    { icon: 'i-undo', label: 'Chế độ: Relay (Flash → 5.3)', run: () => setMode('relay') },
-    { icon: 'i-brain', label: 'Chế độ: Deep (chỉ GLM 5.3)', run: () => setMode('deep') },
-    { icon: 'i-bolt', label: 'Chế độ: Turbo (chỉ Flash)', run: () => setMode('turbo') },
-    { icon: 'i-eye', label: 'Chạy lại Preview', run: () => { switchPane('preview'); window.dispatchEvent(new Event('zeko:preview')); } },
-    { icon: 'i-download', label: 'Tải workspace (.zip)', run: () => downloadZip(store.files, 'zeko-project') },
-    { icon: 'i-file', label: 'Xuất cuộc chat (.md)', run: () => download(sessionToMarkdown(), 'chat.md') },
-    { icon: 'i-refresh', label: 'Ping 2 nền tảng AI', run: () => window.dispatchEvent(new Event('zeko:probe')) },
-    { icon: 'i-gear', label: 'Mở Cấu hình', run: openSettings },
-    { icon: 'i-terminal', label: 'Xoá telemetry', run: resetTelemetry },
-    { icon: 'i-trash', label: 'Xoá workspace hiện tại', run: () => window.dispatchEvent(new Event('zeko:clearfiles')) },
-  ];
-  const files = Object.keys(store.files).map((p) => ({
-    icon: 'i-file', label: p, hint: 'mở file',
-    run: () => { openFile(p); switchPane('code'); document.getElementById('app').classList.remove('no-wb'); },
-  }));
-  const chats = store.sessions.slice(0, 12).map((s) => ({
-    icon: 'i-chat', label: s.title, hint: 'cuộc chat',
-    run: () => window.dispatchEvent(new CustomEvent('zeko:open', { detail: s.id })),
-  }));
-  const ql = q.toLowerCase().trim();
-  const match = (x) => !ql || x.label.toLowerCase().includes(ql);
-  paletteItems = [...cmds.filter(match), ...files.filter(match), ...chats.filter(match)].slice(0, 40);
-  paletteSel = 0;
-  $('#paletteList').innerHTML = paletteItems.map((it, i) =>
-    `<li class="${i === 0 ? 'sel' : ''}" data-i="${i}"><svg><use href="#${it.icon}"/></svg><span>${esc(it.label)}</span>${it.hint ? `<span class="k">${esc(it.hint)}</span>` : ''}</li>`).join('')
-    || `<li style="color:var(--muted)">Không có lệnh nào khớp</li>`;
-}
-
-const setMode = (m) => {
-  store.settings.mode = m; persist();
-  window.dispatchEvent(new CustomEvent('zeko:mode', { detail: m }));
-};
-
-export function bindPalette() {
-  $('#paletteInput').addEventListener('input', (e) => buildPalette(e.target.value));
-  $('#paletteList').addEventListener('click', (e) => {
-    const li = e.target.closest('li[data-i]');
-    if (!li) return;
-    closePalette();
-    paletteItems[Number(li.dataset.i)]?.run();
-  });
-  $('#paletteInput').addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      paletteSel = (paletteSel + (e.key === 'ArrowDown' ? 1 : -1) + paletteItems.length) % Math.max(1, paletteItems.length);
-      $$('#paletteList li').forEach((li, i) => li.classList.toggle('sel', i === paletteSel));
-      $$('#paletteList li')[paletteSel]?.scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const it = paletteItems[paletteSel];
-      closePalette();
-      it?.run();
-    } else if (e.key === 'Escape') closePalette();
-  });
-  $('#paletteBackdrop').addEventListener('mousedown', (e) => { if (e.target.id === 'paletteBackdrop') closePalette(); });
-}
-
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
 /* ─────────────────────────── status bar / providers ─────────────────────────── */
@@ -362,8 +288,6 @@ export function bindUiChrome() {
   $('#modalBackdrop').addEventListener('mousedown', (e) => { if (e.target.id === 'modalBackdrop') closeModal(); });
   $('#openSettings').onclick = openSettings;
   $('#sbSettings').onclick = openSettings;
-  $('#openPalette').onclick = openPalette;
-  bindPalette();
 }
 
 export { refreshAll, renderFileTree, download, downloadZip };

@@ -325,20 +325,6 @@ test('lưu session xuống localStorage và khôi phục được', async () => 
   assert.equal(store.settings.mode, 'deep');
 });
 
-test('command palette mở được và liệt kê lệnh + file', async () => {
-  const { openPalette } = await import('../public/js/ui.mjs');
-  openPalette();
-  await sleep(40);
-  assert.equal($('#paletteBackdrop').hidden, false);
-  const labels = $$('#paletteList li').map((li) => li.textContent);
-  assert.ok(labels.some((l) => /Cuộc chat mới/.test(l)));
-  assert.ok(labels.some((l) => /index\.html/.test(l)), 'palette phải liệt kê file workspace');
-  $('#paletteInput').value = 'zip';
-  $('#paletteInput').dispatchEvent(new dom.window.Event('input'));
-  await sleep(30);
-  assert.ok($$('#paletteList li').some((li) => /zip/.test(li.textContent)));
-});
-
 test('cấu hình: mở modal, đổi chế độ + thêm API key rồi lưu xuống engine', async () => {
   const { openSettings } = await import('../public/js/ui.mjs');
   const { transport } = await import('../public/js/transport.mjs');
