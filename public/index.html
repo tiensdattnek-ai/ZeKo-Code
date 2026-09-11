@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZeKo Code — AI Coding Agent (GLM 5.3 Fusion)</title>
+<meta name="description" content="Web chat AI coding agent hợp nhất GLM 5.3 + GLM 5.3 Flash qua OpenRouter & TokenRouter: copy, live preview, download code." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0f16'/%3E%3Cpath d='M10 9l6 7-6 7' stroke='%2322d3a7' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M18 23h5' stroke='%237c5cff' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/styles/app.css" />
+<link rel="modulepreload" href="/js/highlight.mjs" />
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6L4 12z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8V4z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></symbol>
+  <symbol id="i-diff" viewBox="0 0 24 24"><path d="M6 3v12M6 21v-2M3 6h6M18 9v12M15 12h6"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15H2.5a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 2.6h.1A1.7 1.7 0 0 0 10.3 1V.9a2 2 0 1 1 4 0V1A1.7 1.7 0 0 0 17 2.6a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0l1 13h8l1-13"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3 1-5a8 8 0 1 1 17-6z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 3a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 1 5 3 3 0 0 0 4 3 2 2 0 0 0 3-2V5a2 2 0 0 0-3-2z"/><path d="M15 3a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-1 5 3 3 0 0 1-4 3 2 2 0 0 1-3-2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2l10 6-10 6L2 8l10-6zM2 16l10 6 10-6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 20V8m0 0l-4 4m4-4l4 4M4 4h16"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.9 2.1L22 19l-2.1.9L19 22l-.9-2.1L16 19l2.1-.9L19 16z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+  <symbol id="i-mobile" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-desktop" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9 2 2-2 2 2 2-3 3-2-2-2 2"/></symbol>
+</defs></svg>
+
+<div class="app" id="app">
+
+  <!-- ══════════════════ SIDEBAR ══════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg><use href="#i-bolt"/></svg></span>
+      <span class="brand-text">ZeKo <b>Code</b></span>
+      <button class="icon-btn only-wide" id="collapseSidebar" title="Ẩn sidebar (Ctrl+B)"><svg><use href="#i-panel"/></svg></button>
+    </div>
+
+    <button class="btn primary new-chat" id="newChat">
+      <svg><use href="#i-plus"/></svg><span>Cuộc chat mới</span><kbd>Ctrl N</kbd>
+    </button>
+
+    <div class="side-tabs" role="tablist">
+      <button class="side-tab active" data-side="chats" role="tab"><svg><use href="#i-chat"/></svg><span>Chat</span></button>
+      <button class="side-tab" data-side="files" role="tab"><svg><use href="#i-folder"/></svg><span>File</span></button>
+      <button class="side-tab" data-side="status" role="tab"><svg><use href="#i-activity"/></svg><span>Trạng thái</span></button>
+    </div>
+
+    <div class="side-body">
+      <section class="side-pane active" data-pane="chats">
+        <div class="search-box">
+          <svg><use href="#i-search"/></svg>
+          <input id="chatSearch" type="search" placeholder="Tìm trong các cuộc chat…" />
+        </div>
+        <ul class="chat-list" id="chatList"></ul>
+      </section>
+
+      <section class="side-pane" data-pane="files">
+        <div class="pane-head">
+          <span>Workspace</span>
+          <div class="row-actions">
+            <button class="icon-btn" id="addFiles" title="Thêm file từ máy"><svg><use href="#i-upload"/></svg></button>
+            <button class="icon-btn" id="zipAll" title="Tải toàn bộ (.zip)"><svg><use href="#i-download"/></svg></button>
+            <button class="icon-btn danger" id="clearFiles" title="Xoá workspace"><svg><use href="#i-trash"/></svg></button>
+          </div>
+        </div>
+        <div class="file-tree" id="fileTree"></div>
+        <input type="file" id="fileInput" multiple hidden />
+      </section>
+
+      <section class="side-pane" data-pane="status">
+        <div class="pane-head"><span>Nguồn AI &amp; API key</span>
+          <button class="icon-btn" id="probeBtn" title="Ping cả 2 nền tảng"><svg><use href="#i-refresh"/></svg></button>
+        </div>
+        <div id="providerCards" class="provider-cards"></div>
+        <div class="transport-box" id="transportBox"></div>
+      </section>
+    </div>
+
+    <div class="side-foot">
+      <button class="btn ghost" id="openSettings"><svg><use href="#i-gear"/></svg><span>Cấu hình</span></button>
+      <button class="btn ghost" id="openPalette" title="Ctrl+K"><svg><use href="#i-search"/></svg><span>Lệnh</span><kbd>⌘K</kbd></button>
+    </div>
+  </aside>
+
+  <!-- ══════════════════ CHAT ══════════════════ -->
+  <main class="chat">
+    <header class="chat-head">
+      <button class="icon-btn only-narrow" id="showSidebar"><svg><use href="#i-panel"/></svg></button>
+
+      <div class="mode-switch" id="modeSwitch" role="tablist" aria-label="Chế độ suy luận">
+        <button class="mode" data-mode="fusion" title="GLM 5.3 + Flash chạy song song, hợp nhất 1 đáp án"><svg><use href="#i-layers"/></svg>Fusion</button>
+        <button class="mode" data-mode="relay" title="Flash nháp → 5.3 phản biện"><svg><use href="#i-undo"/></svg>Relay</button>
+        <button class="mode" data-mode="deep" title="Chỉ GLM 5.3 (OpenRouter)"><svg><use href="#i-brain"/></svg>Deep</button>
+        <button class="mode" data-mode="turbo" title="Chỉ GLM 5.3 Flash (TokenRouter)"><svg><use href="#i-bolt"/></svg>Turbo</button>
+        <span class="mode-thumb" id="modeThumb"></span>
+      </div>
+
+      <div class="head-meta" id="headMeta">
+        <span class="chip" id="chipModels" title="Model đang dùng">—</span>
+        <span class="chip" id="chipTransport" title="Đường truyền">—</span>
+      </div>
+
+      <div class="head-actions">
+        <button class="icon-btn" id="toggleReview" title="Tự động review code sau mỗi câu trả lời"><svg><use href="#i-sparkle"/></svg></button>
+        <button class="icon-btn" id="toggleTheme" title="Đổi giao diện sáng/tối"><svg><use href="#i-eye"/></svg></button>
+        <button class="icon-btn only-wide" id="toggleWorkbench" title="Ẩn/hiện Workbench (Ctrl+J)"><svg><use href="#i-code"/></svg></button>
+      </div>
+    </header>
+
+    <div class="stream" id="stream" tabindex="0"></div>
+
+    <div class="composer-wrap">
+      <div class="composer" id="composer">
+        <div class="composer-top">
+          <div class="attach-row" id="attachRow"></div>
+        </div>
+        <textarea id="input" rows="1" spellcheck="false"
+          placeholder="Mô tả tính năng, dán lỗi, hoặc yêu cầu refactor…  (Enter gửi · Shift+Enter xuống dòng · / để xem lệnh)"></textarea>
+        <div class="composer-bar">
+          <div class="composer-left">
+            <button class="pill" id="attachBtn" title="Đính kèm file code / ảnh"><svg><use href="#i-upload"/></svg>Đính kèm</button>
+            <button class="pill" id="ctxBtn" title="Gửi kèm file workspace làm ngữ cảnh"><svg><use href="#i-folder"/></svg><span id="ctxLabel">0 file ngữ cảnh</span></button>
+            <button class="pill" id="reviewPill" title="Tự review sau khi trả lời"><svg><use href="#i-sparkle"/></svg>Auto-review</button>
+          </div>
+          <div class="composer-right">
+            <span class="hint" id="charHint"></span>
+            <button class="send" id="sendBtn" title="Gửi (Enter)"><svg><use href="#i-send"/></svg><span>Gửi</span></button>
+            <button class="send stop hidden" id="stopBtn"><svg><use href="#i-stop"/></svg><span>Dừng</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="composer-foot">
+        <span>ZeKo Fusion · GLM 5.3 (OpenRouter) + GLM 5.3 Flash (TokenRouter) · 4 API key tự roll</span>
+        <span id="footStats"></span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ══════════════════ WORKBENCH ══════════════════ -->
+  <aside class="workbench" id="workbench">
+    <div class="wb-head">
+      <div class="wb-tabs" role="tablist">
+        <button class="wb-tab active" data-wb="preview"><svg><use href="#i-eye"/></svg>Preview</button>
+        <button class="wb-tab" data-wb="code"><svg><use href="#i-code"/></svg>Code</button>
+        <button class="wb-tab" data-wb="diff"><svg><use href="#i-diff"/></svg>Diff<span class="badge" id="diffBadge">0</span></button>
+        <button class="wb-tab" data-wb="tele"><svg><use href="#i-activity"/></svg>Telemetry</button>
+      </div>
+      <div class="wb-tools" id="wbTools"></div>
+      <button class="icon-btn only-narrow" id="hideWorkbench"><svg><use href="#i-close"/></svg></button>
+    </div>
+    <div class="wb-body">
+      <section class="wb-pane active" data-wbpane="preview">
+        <div class="preview-bar" id="previewBar">
+          <select id="entrySelect" title="File HTML để chạy"></select>
+          <div class="seg" id="deviceSeg">
+            <button data-w="100%" class="active" title="Toàn chiều ngang"><svg><use href="#i-desktop"/></svg></button>
+            <button data-w="820px" title="Tablet"><svg><use href="#i-mobile"/></svg></button>
+            <button data-w="390px" title="Mobile"><svg><use href="#i-mobile"/></svg></button>
+          </div>
+          <button class="icon-btn" id="previewReload" title="Chạy lại"><svg><use href="#i-refresh"/></svg></button>
+          <button class="icon-btn" id="previewOpen" title="Mở tab riêng"><svg><use href="#i-ext"/></svg></button>
+          <button class="icon-btn" id="previewDownload" title="Tải HTML"><svg><use href="#i-download"/></svg></button>
+          <span class="console-dot" id="consoleDot" title="Lỗi console trong preview"></span>
+        </div>
+        <div class="preview-stage"><iframe id="previewFrame" title="Live preview" sandbox="allow-scripts allow-modals allow-forms allow-popups allow-pointer-lock"></iframe></div>
+        <div class="console" id="previewConsole"></div>
+      </section>
+
+      <section class="wb-pane" data-wbpane="code">
+        <div class="code-head">
+          <div class="crumbs" id="crumbs"></div>
+          <div class="row-actions">
+            <button class="icon-btn" id="fileCopy" title="Copy"><svg><use href="#i-copy"/></svg></button>
+            <button class="icon-btn" id="fileWrap" title="Bật/tắt xuống dòng"><svg><use href="#i-terminal"/></svg></button>
+            <button class="icon-btn" id="fileDownload" title="Tải file"><svg><use href="#i-download"/></svg></button>
+          </div>
+        </div>
+        <div class="editor-wrap"><div class="gutter" id="gutter"></div><div class="editor-scroll"><pre class="editor-highlight" id="editorHighlight"></pre><textarea class="editor-input" id="editorInput" spellcheck="false"></textarea></div></div>
+      </section>
+
+      <section class="wb-pane" data-wbpane="diff">
+        <div class="diff-head" id="diffHead"></div>
+        <div class="diff-body" id="diffBody"></div>
+      </section>
+
+      <section class="wb-pane" data-wbpane="tele">
+        <div class="tele" id="tele"></div>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<div class="statusbar">
+  <span class="sb-item" id="sbStatus"><i class="dot"></i><span>đang khởi động…</span></span>
+  <span class="sb-item" id="sbKeys"></span>
+  <span class="sb-item" id="sbMode">fusion</span>
+  <span class="sb-item grow"></span>
+  <span class="sb-item" id="sbTokens">0 token</span>
+  <span class="sb-item" id="sbTime">—</span>
+  <button class="sb-btn" id="sbSettings"><svg><use href="#i-gear"/></svg></button>
+</div>
+
+<!-- modal -->
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <header class="modal-head"><h2 id="modalTitle">Cấu hình</h2><button class="icon-btn" id="modalClose"><svg><use href="#i-close"/></svg></button></header>
+    <div class="modal-body" id="modalBody"></div>
+    <footer class="modal-foot" id="modalFoot"></footer>
+  </div>
+</div>
+
+<!-- command palette -->
+<div class="palette-backdrop" id="paletteBackdrop" hidden>
+  <div class="palette" role="dialog" aria-modal="true">
+    <div class="palette-input"><svg><use href="#i-search"/></svg><input id="paletteInput" placeholder="Gõ lệnh, tên file, hoặc câu hỏi mới…" autocomplete="off" /></div>
+    <ul class="palette-list" id="paletteList"></ul>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="/vendor/jszip.min.js" defer></script>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

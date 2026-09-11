@@ -1,0 +1,16 @@
+{
+  "_": "Copy file này thành config.local.json rồi dán key thật. config.local.json đã nằm trong .gitignore nên không bao giờ bị commit.",
+  "providers": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "models": ["z-ai/glm-5.3", "z-ai/glm-5.3:free", "z-ai/glm-4.6"],
+      "keys": ["sk-or-v1-KEY_1", "sk-or-v1-KEY_2"]
+    },
+    "tokenrouter": {
+      "baseUrl": "https://api.tokenrouter.com/v1",
+      "models": ["z-ai/glm-5.3-flash", "z-ai/glm-5.3-free", "z-ai/glm-5.3"],
+      "keys": ["sk-KEY_1", "sk-KEY_2"]
+    }
+  },
+  "defaults": { "mode": "fusion", "temperature": 0.35, "maxTokens": 8192 }
+}
