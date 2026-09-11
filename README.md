@@ -26,7 +26,7 @@ tải code — tất cả trong một app Node không cần build step.
 ```bash
 npm install
 npm start          # http://localhost:8787 — 4 API key đã có sẵn, không cần setup
-npm test           # 58 test: unit + server e2e + UI e2e (jsdom)
+npm test           # 65 test: unit + server e2e + UI e2e (jsdom)
 ```
 
 Không có bước build: frontend là ES module thuần, thư viện được serve thẳng từ
@@ -84,7 +84,20 @@ UI tự động: lưu file vào workspace → hiện **code card** (Copy · Lưu
 bắt console & lỗi runtime) → ghi **diff** (LCS) và cho hoàn tác từng file → ghi **telemetry**
 (model nào, key nào, bao nhiêu token, bao lâu).
 
-## 6. Cấu hình
+## 6. Trong khung chat
+
+| Tính năng | Dùng thế nào |
+|---|---|
+| **`@` nhắc file** | gõ `@` → popup liệt kê file trong workspace, ↑↓ + Enter chèn. File được nhắc **luôn** nằm trong system prompt, kể cả khi đã tắt ngữ cảnh workspace |
+| **Lệnh `/` tự hoàn thành** | gõ `/` → bảng lệnh lọc theo tiền tố, ↑↓ chọn, Enter dùng, Esc đóng |
+| **Dán ảnh** | Ctrl/Cmd + V ảnh vào ô nhập → thành attachment gửi kèm (vision) |
+| **Hỏi nhanh trên code** | mỗi khối code có `Giải thích` / `Tìm bug` / `Viết test` → tự dựng câu hỏi kèm đúng đoạn code đó |
+| **Tự cuộn có khoá** | bạn cuộn lên đọc lại thì agent viết tiếp **không** giật màn hình xuống; nút ⬇ hiện ra để về cuối |
+| **Ngân sách ngữ cảnh** | 120 000 ký tự — dài hơn thì tự bỏ tin cũ nhất và báo rõ đã bỏ bao nhiêu tin |
+| **Lượt hỏng thì bấm lại** | cả hai nguồn chết → ô lỗi + nút **Thử lại** gửi đúng câu hỏi cũ, không nhân đôi tin nhắn |
+| **Render có tiết lưu** | markdown khi stream chỉ vẽ lại tối đa ~11 lần/giây → không khựng với câu trả lời dài |
+
+## 7. Cấu hình
 
 Mở **Cấu hình** (nút ⚙ hoặc `Ctrl ,`):
 
@@ -95,11 +108,11 @@ Mở **Cấu hình** (nút ⚙ hoặc `Ctrl ,`):
 - Footer mỗi câu trả lời: thời gian, tổng token, **tok/s**, model và key đã dùng.
 - Xuất/nhập backup `.json`, xuất cuộc chat `.md`, xoá dữ liệu.
 
-Đọc từ env (xem `.env.example`) hoặc `config.local.json` (xem mục 7):
+Đọc từ env (xem `.env.example`) hoặc `config.local.json` (xem mục 8):
 `OPENROUTER_API_KEYS`, `TOKENROUTER_API_KEYS`, `OPENROUTER_MODELS`, `TOKENROUTER_MODELS`,
 `OPENROUTER_BASE_URL`, `TOKENROUTER_BASE_URL`, `PORT`.
 
-## 7. API key — để ở đâu
+## 8. API key — để ở đâu
 
 Key được nạp theo thứ tự (cái **áp sau thắng**):
 
@@ -130,13 +143,16 @@ openrouter: [ j(OR, '9a3557cf60ec2d4a', 'd191cc7b120dce9a', …) ]
 
 Chạy hoàn toàn không credential (CI/demo): `ZEKO_NO_KEYS=1 npm start`.
 
-## 8. Phím tắt
+## 9. Phím tắt
 
 `Enter` gửi · `Shift Enter` xuống dòng · `Ctrl K` command palette · `Ctrl N` chat mới ·
 `Ctrl B` sidebar · `Ctrl J` workbench · `Ctrl ,` cấu hình · `Ctrl S` lưu file đang mở ·
 `Esc` dừng / đóng modal · `/help` xem lệnh trong ô nhập.
 
-## 9. Cấu trúc repo
+Trong ô nhập: `@` mở popup nhắc file, `/` mở popup lệnh — cả hai dùng `↑↓` chọn,
+`Enter`/`Tab` lấy, `Esc` đóng.
+
+## 10. Cấu trúc repo
 
 ```
 server/index.js          Express: static + /api/chat (SSE) + probe + config + sessions
@@ -157,17 +173,17 @@ public/
   js/store.mjs           state + localStorage + export/import
   js/ui.mjs              toast, modal, palette, settings, status bar
 test/
-  fusion.test.mjs        27 unit test (mock fetch): rotation, failover, fusion, diff…
+  fusion.test.mjs        26 unit test (mock fetch): rotation, failover, fusion, diff…
   config.test.mjs        7 test: seed ghép đúng fingerprint, ưu tiên env > file > seed
   server.e2e.test.mjs    7 test HTTP thật: SSE relay, CRUD, chặn traversal
-  ui.e2e.test.mjs        14 test jsdom: chạy thẳng public/js/app.js
+  ui.e2e.test.mjs        21 test jsdom: chạy thẳng public/js/app.js
   ui.nokeys.e2e.test.mjs 4 test: boot khi không có key → tự mở Cấu hình
 ```
 
-## 10. Test
+## 11. Test
 
 ```bash
-npm test     # 58 test
+npm test     # 65 test
 ```
 
 Ba tầng, không mock lại logic đã ship:
@@ -180,6 +196,6 @@ Ba tầng, không mock lại logic đã ship:
    rồi `import` chính `public/js/app.js`: gửi tin nhắn → 2 lane → hợp nhất → code card →
    file vào workspace → preview srcdoc → copy/download → editor → diff → palette.
 
-## 11. Giấy phép & ghi công
+## 12. Giấy phép & ghi công
 
 Model: GLM 5.3 (Z.ai) qua OpenRouter & TokenRouter. Giao diện và engine: code gốc trong repo này.

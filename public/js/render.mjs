@@ -72,6 +72,11 @@ export function buildCard(card, i) {
       <span class="cc-lang ${card.isFile ? 'file' : ''}">${LANG_LABEL(card.lang)}</span>
       <span class="cc-path">${dir ? `<span class="dir">${esc(dir)}</span>` : ''}${esc(base)}</span>
       <span class="cc-meta">${lines} dòng · ${card.code.length} B</span>
+      <div class="cc-ask">
+        <button data-ask="explain" title="Bảo agent giải thích đoạn này">Giải thích</button>
+        <button data-ask="bug" title="Bảo agent tìm bug & lỗ hổng">Tìm bug</button>
+        <button data-ask="test" title="Bảo agent viết unit test">Viết test</button>
+      </div>
       <div class="cc-actions">
         ${canPreview ? btn('eye', 'Chạy thử trong Preview', 'preview') : ''}
         ${card.isFile ? btn('save', 'Lưu vào workspace', 'save') : ''}
@@ -119,19 +124,39 @@ export function mountMarkdown(host, markdown) {
   return cards;
 }
 
-/** Streaming-safe: render without destroying the previous frame mid-typing. */
+/**
+ * Streaming-safe + throttled.
+ * Mỗi delta đều re-parse toàn bộ markdown → với câu trả lời dài sẽ giật.
+ * Ta gộp tối đa ~11 lần render/giây, và luôn render khung cuối cùng.
+ */
 let rafId = 0;
+let pendingId = 0;
+let lastRenderAt = 0;
+export const RENDER_MIN_GAP = 90;
+
 export function mountMarkdownSoon(host, markdown, done) {
-  cancelAnimationFrame(rafId);
-  rafId = requestAnimationFrame(() => {
-    const cards = mountMarkdown(host, markdown);
-    if (done) done(cards);
-  });
+  const wait = Math.max(0, RENDER_MIN_GAP - (Date.now() - lastRenderAt));
+  clearTimeout(pendingId);
+  pendingId = setTimeout(() => {
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(() => {
+      lastRenderAt = Date.now();
+      const cards = mountMarkdown(host, markdown);
+      if (done) done(cards);
+    });
+  }, wait);
 }
 
 /** Delegated click handling for every code card inside `root`. */
 export function initCardActions(root, handlers) {
   root.addEventListener('click', (e) => {
+    const ask = e.target.closest('.cc-ask [data-ask]');
+    if (ask) {
+      const cardEl = ask.closest('.code-card');
+      const code = cardEl?.querySelector('pre code')?.textContent || '';
+      handlers.ask?.(code, cardEl?.dataset.file || '', ask.dataset.ask);
+      return;
+    }
     const b = e.target.closest('.cc-actions [data-act]');
     if (!b) return;
     const cardEl = b.closest('.code-card');

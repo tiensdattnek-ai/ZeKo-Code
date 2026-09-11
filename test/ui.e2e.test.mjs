@@ -17,6 +17,8 @@ const PORT = 8799;
 const ROOT = new URL('..', import.meta.url).pathname;
 
 let dom, app, clipboard, downloads;
+const captured = [];   // body các request gửi lên model
+let failAll = false;   // bật lên để giả lập mọi lời gọi model đều 500
 
 const ANSWER = [
   'Đây là trang demo:\n',
@@ -96,6 +98,11 @@ before(async () => {
       };
     }
     const body = opts.body ? JSON.parse(opts.body) : {};
+    captured.push(body);
+    if (failAll) {
+      return { ok: false, status: 500, statusText: 'Server Error',
+        text: async () => JSON.stringify({ error: { message: 'upstream 500 (giả lập)' } }) };
+    }
     const flat = JSON.stringify(body.messages || []);
     if (flat.includes('CẮT NGẮN')) return sseText('câu trả lời bị cắt giữa chừng vì hết token', 'length');
     const isSynthesis = /bộ tổng hợp/.test(body.messages?.[0]?.content || '');
@@ -140,6 +147,11 @@ after(() => { dom?.window.__zeko?.stop(); app?.kill('SIGTERM'); dom?.window.clos
 const $ = (s) => dom.window.document.querySelector(s);
 const $$ = (s) => [...dom.window.document.querySelectorAll(s)];
 const click = (el) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+const idle = async () => {
+  await sleep(200);
+  await wait(() => $('#stopBtn').classList.contains('hidden') && /hoàn tất|đã dừng/.test($('#sbStatus').textContent), 20000);
+  await sleep(150);
+};
 const wait = async (fn, ms = 12000) => {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) { if (fn()) return true; await sleep(80); }
@@ -373,4 +385,164 @@ test('hết max_tokens: hiện nút "Viết tiếp" + tốc độ tok/s, bấm t
   const texts = activeSession().messages.map((m) => m.content);
   assert.ok(texts.some((t) => /Viết tiếp phần còn lại/.test(t)), 'phải có tin nhắn nối mạch trong lịch sử');
   assert.ok(await wait(() => /hoàn tất/.test($('#sbStatus').textContent), 15000), 'đợi lượt nối mạch kết thúc');
+});
+
+test('@-mention: gõ @ hiện popup file, Enter chèn đường dẫn, file vào ngữ cảnh', async () => {
+  const input = $('#input');
+  input.value = 'sửa lỗi trong @ind';
+  input.selectionStart = input.selectionEnd = input.value.length;
+  input.dispatchEvent(new dom.window.Event('input'));
+  await sleep(40);
+
+  assert.equal($('#mentionBox').hidden, false, 'popup @ phải hiện');
+  const items = $$('#mentionBox .mi');
+  assert.ok(items.some((i) => i.dataset.f === 'index.html'), 'phải gợi ý index.html');
+
+  input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await sleep(40);
+  assert.equal($('#mentionBox').hidden, true, 'popup phải đóng sau khi chọn');
+  assert.equal(input.value, 'sửa lỗi trong @index.html ');
+
+  captured.length = 0;
+  click($('#sendBtn'));
+  const sysOf = (b) => (b.messages?.[0]?.role === 'system' ? b.messages[0].content : '');
+  assert.ok(await wait(() => captured.some((b) => sysOf(b).includes('File người dùng đang nói tới')), 20000),
+    'file nhắc bằng @ phải được đưa vào system prompt');
+  const sys = sysOf(captured.find((b) => sysOf(b).includes('File người dùng đang nói tới')));
+  assert.match(sys, /### index\.html/, 'phải kèm nội dung file được nhắc');
+  assert.match(sys, /<h1 id="t">ZeKo<\/h1>/, 'phải kèm đúng nội dung index.html');
+  await idle();
+});
+
+test('paste ảnh vào ô nhập → thành attachment (vision)', async () => {
+  const input = $('#input');
+  const file = new dom.window.File([new dom.window.Uint8Array([137, 80, 78, 71])], 'bug.png', { type: 'image/png' });
+  const ev = new dom.window.Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(ev, 'clipboardData', {
+    value: { items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }], files: [file] },
+  });
+  input.dispatchEvent(ev);
+  assert.ok(await wait(() => $$('#attachRow .attach').length === 1, 5000), 'phải hiện chip ảnh đính kèm');
+  assert.match($('#attachRow').textContent, /bug\.png/);
+  assert.ok($('#attachRow img'), 'ảnh phải có thumbnail');
+  $$('#attachRow .attach .icon-btn').forEach((b) => click(b)); // dọn
+});
+
+test('quick-ask trên code card: bấm "Tìm bug" thì gửi đúng prompt review', async () => {
+  const card = $$('.msg.agent .code-card')[0];
+  assert.ok(card.querySelector('.cc-ask [data-ask="bug"]'), 'card phải có nút Tìm bug');
+  captured.length = 0;
+  click(card.querySelector('.cc-ask [data-ask="bug"]'));
+  assert.ok(await wait(() => captured.length > 0, 15000), 'phải gửi lượt mới lên model');
+  const user = captured[0].messages.at(-1);
+  const text = typeof user.content === 'string' ? user.content : JSON.stringify(user.content);
+  assert.match(text, /Review code/, 'prompt phải là yêu cầu review');
+  assert.match(text, /index\.html/, 'phải nói rõ file nào');
+  assert.ok(await wait(() => /hoàn tất/.test($('#sbStatus').textContent), 15000));
+});
+
+test('nút "về cuối" hoạt động khi người dùng cuộn lên', async () => {
+  const btn = $('#toBottom');
+  btn.hidden = false;
+  click(btn);
+  await sleep(20);
+  assert.equal(btn.hidden, true, 'bấm xong phải ẩn nút và cuộn về cuối');
+});
+
+test('gõ "/" hiện bảng lệnh tắt, Enter chọn lệnh', async () => {
+  await idle();
+  captured.length = 0;
+  const input = $('#input');
+  const box = $('#slashBox');
+
+  input.value = '/mo';
+  input.selectionStart = input.selectionEnd = 3;
+  input.dispatchEvent(new dom.window.Event('input'));
+  assert.equal(box.hidden, false, 'popup lệnh phải hiện khi gõ /');
+  const cmds = $$('#slashBox .mi').map((el) => el.dataset.c);
+  assert.deepEqual(cmds, ['/mode'], `lọc theo tiền tố phải ra đúng /mode (thấy: ${cmds.join(', ')})`);
+
+  // Enter chọn lệnh cần tham số → điền "/mode " chứ chưa gửi
+  input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  assert.equal(input.value, '/mode ', 'lệnh có tham số phải được điền kèm khoảng trắng');
+  assert.equal(box.hidden, true, 'popup phải đóng sau khi chọn');
+  await sleep(300);
+  assert.equal(captured.length, 0, 'mới điền lệnh thì chưa được gọi model');
+
+  // Escape đóng popup
+  input.value = '/th';
+  input.selectionStart = input.selectionEnd = 3;
+  input.dispatchEvent(new dom.window.Event('input'));
+  assert.equal(box.hidden, false, 'popup phải hiện lại');
+  input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.equal(box.hidden, true, 'Escape phải đóng popup');
+
+  // lệnh không tham số → chạy luôn
+  input.value = '/help';
+  input.selectionStart = input.selectionEnd = 5;
+  input.dispatchEvent(new dom.window.Event('input'));
+  input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  await sleep(200);
+  assert.equal($('#modalBackdrop').hidden, false, 'chọn /help phải mở bảng lệnh');
+  assert.match($('#modalBody').textContent, /\/mode|Lệnh tắt/);
+  $('#modalClose')?.click();
+  $('#modalBackdrop').hidden = true;
+  input.value = '';
+  input.dispatchEvent(new dom.window.Event('input'));
+});
+
+test('lượt chat lỗi → nút Thử lại gửi đúng câu hỏi cũ, không nhân đôi tin', async () => {
+  await idle();
+  failAll = true;
+  const input = $('#input');
+  input.value = 'sửa giúp tôi lỗi này';
+  input.dispatchEvent(new dom.window.Event('input'));
+  const before = captured.length;
+  click($('#sendBtn'));
+  assert.ok(await wait(() => $('[data-retry]'), 60000), 'ô báo lỗi phải có nút Thử lại');
+  assert.match($('#sbStatus').textContent, /lỗi/i, 'không được báo "hoàn tất" cho một lượt hỏng');
+  assert.match($('#stream').textContent, /Không hoàn thành được lượt này/);
+
+  const st = dom.window.__zeko.store;
+  const sess = () => st.sessions.find((x) => x.id === st.activeId);
+  const nU = sess().messages.filter((m) => m.role === 'user').length;
+  const nA = sess().messages.filter((m) => m.role === 'assistant').length;
+
+  failAll = false;
+  click($('[data-retry]'));
+  assert.ok(await wait(() => captured.length > before, 40000), 'bấm Thử lại phải gọi model lần nữa');
+  assert.ok(await wait(() => /hoàn tất/.test($('#sbStatus').textContent), 40000), 'lượt thử lại phải chạy tới nơi tới chốn');
+
+  assert.equal(sess().messages.filter((m) => m.role === 'user').length, nU, 'không được lặp câu hỏi');
+  assert.equal(sess().messages.filter((m) => m.role === 'assistant').length, nA, 'câu trả lời lỗi phải bị thay, không nhân đôi');
+  assert.ok(sess().messages.at(-1).content.length > 20, 'câu trả lời mới phải có nội dung');
+  assert.ok(!sess().messages.some((m) => m.meta?.failed), 'không được còn tin đánh dấu failed sau khi thử lại thành công');
+  assert.ok(!$('#stream').textContent.includes('upstream 500'), 'không được còn ô lỗi cũ trên màn hình');
+  await idle();
+});
+
+test('ngữ cảnh quá dài → tự bỏ tin cũ nhất cho vừa cửa sổ', async () => {
+  await idle();
+  const input = $('#input');
+  const big = 'A'.repeat(130_000);
+
+  captured.length = 0;
+  input.value = big;
+  input.dispatchEvent(new dom.window.Event('input'));
+  click($('#sendBtn'));
+  assert.ok(await wait(() => captured.length > 0, 20000), 'lượt 1 phải gửi đi');
+  await idle();
+
+  captured.length = 0;
+  input.value = big;
+  input.dispatchEvent(new dom.window.Event('input'));
+  click($('#sendBtn'));
+  assert.ok(await wait(() => captured.length > 0, 20000), 'lượt 2 phải gửi đi');
+
+  const msgs = captured[0].messages;
+  const giants = msgs.filter((m) => typeof m.content === 'string' && m.content.length > 100_000);
+  assert.equal(giants.length, 1, `chỉ được giữ 1 tin 130k, tin cũ phải bị cắt (thấy ${giants.length}/${msgs.length} tin)`);
+  const total = msgs.reduce((n, m) => n + (typeof m.content === 'string' ? m.content.length : 0), 0);
+  assert.ok(total < 200_000, `tổng ngữ cảnh phải dưới ngân sách (thực tế ${total})`);
+  await idle();
 });

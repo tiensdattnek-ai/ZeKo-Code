@@ -21,6 +21,9 @@ const state = {
   abort: null,
   attachments: [],
   healthTimer: null,
+  following: true,   // có tự cuộn theo câu trả lời không
+  mention: null,     // trạng thái popup @-file
+  slash: null,       // trạng thái popup lệnh /
 };
 
 /* ═══════════════════════════ boot ═══════════════════════════ */
@@ -32,6 +35,7 @@ async function boot() {
   bindUiChrome();
   bindChrome();
   bindComposer();
+  bindStreamScroll();
   bindSidebar();
   bindFileTree();
   bindEditor();
@@ -268,12 +272,163 @@ function renderAttach() {
 
 /* ═══════════════════════════ composer ═══════════════════════════ */
 
+function bindStreamScroll() {
+  const stream = $('#stream');
+  stream.addEventListener('scroll', () => {
+    state.following = stream.scrollTop + stream.clientHeight >= stream.scrollHeight - 60;
+    const btn = $('#toBottom');
+    if (btn) btn.hidden = state.following;
+  });
+  const btn = $('#toBottom');
+  if (btn) btn.onclick = () => { state.following = true; scrollToBottom(true); btn.hidden = true; };
+}
+
+function scrollToBottom(force = false) {
+  const el = $('#stream');
+  if (!el) return;
+  if (force || state.following !== false) el.scrollTop = el.scrollHeight;
+}
+
+/** Gửi một câu hỏi do UI dựng sẵn (quick-ask trên code card). */
+function sendText(text) {
+  if (state.busy) return toast('ZeKo đang trả lời — bấm Dừng nếu muốn ngắt', 'warn');
+  $('#input').value = text;
+  $('#input').dispatchEvent(new Event('input'));
+  send();
+}
+
+const ASK_PROMPT = {
+  explain: (p) => `Giải thích code ${p ? 'trong file \`${p}\`' : 'dưới đây'}: luồng chạy, ý đồ thiết kế, và chỗ nào dễ hiểu nhầm.`,
+  bug: (p) => `Review code ${p ? 'trong file \`${p}\`' : 'dưới đây'}: tìm bug, edge case và lỗ hổng bảo mật. Liệt kê theo mức độ kèm cách sửa cụ thể.`,
+  test: (p) => `Viết unit test cho code ${p ? 'trong file \`${p}\`' : 'dưới đây'}, phủ cả case biên. Dùng test runner đúng chuẩn của ngôn ngữ đó.`,
+};
+
+function askAboutCode(code, path, kind) {
+  if (!code) return;
+  const inWorkspace = path && store.files[path] !== undefined;
+  const inline = !inWorkspace || code.length <= 8000;
+  const lang = path ? path.split('.').pop() : '';
+  const block = inline ? '\n\n```' + lang + (path ? ' ' + path : '') + '\n' + code.slice(0, 12000) + '\n```\n'
+    : `\n\n(File \`${path}\` đã có trong workspace của tôi.)\n`;
+  sendText((ASK_PROMPT[kind] || ASK_PROMPT.explain)(path) + block);
+}
+
+/* ── @-mention: chèn file workspace vào ngữ cảnh ── */
+const MENTION_RE = /@([\w./-]*)$/;
+
+function updateMention() {
+  const input = $('#input');
+  const box = $('#mentionBox');
+  const caret = input.selectionStart ?? input.value.length;
+  const m = MENTION_RE.exec(input.value.slice(0, caret));
+  const files = Object.keys(store.files);
+  if (!m || !files.length) { box.hidden = true; state.mention = null; return; }
+  const q = m[1].toLowerCase();
+  const hits = files.filter((f) => f.toLowerCase().includes(q)).slice(0, 8);
+  if (!hits.length) { box.hidden = true; state.mention = null; return; }
+  state.mention = { start: caret - m[0].length, end: caret, hits, sel: 0 };
+  box.hidden = false;
+  box.innerHTML = `<div class="mh">Chèn file vào ngữ cảnh</div>` + hits.map((f, i) =>
+    `<div class="mi${i === 0 ? ' sel' : ''}" data-f="${esc(f)}"><svg><use href="#i-file"/></svg>${esc(f)}<span class="sz">${(store.files[f] || '').split('\n').length} dòng</span></div>`).join('');
+}
+
+function chooseMention(idx) {
+  const st = state.mention;
+  const input = $('#input');
+  if (!st) return;
+  const path = st.hits[idx ?? st.sel];
+  if (!path) return;
+  input.value = input.value.slice(0, st.start) + '@' + path + ' ' + input.value.slice(st.end);
+  $('#mentionBox').hidden = true;
+  state.mention = null;
+  input.dispatchEvent(new Event('input'));
+  input.focus();
+}
+
+/* ── autocomplete cho lệnh /: gõ "/" là thấy ngay bảng lệnh ── */
+const SLASH_RE = /^\/([\w-]*)$/;
+
+function updateSlash() {
+  const input = $('#input');
+  const box = $('#slashBox');
+  const caret = input.selectionStart ?? input.value.length;
+  const m = caret === input.value.length ? SLASH_RE.exec(input.value) : null;
+  if (!m) { box.hidden = true; state.slash = null; return; }
+  const hits = SLASH.filter(([c]) => c.slice(1).toLowerCase().startsWith(m[1].toLowerCase())).slice(0, 8);
+  if (!hits.length) { box.hidden = true; state.slash = null; return; }
+  state.slash = { hits, sel: 0 };
+  box.hidden = false;
+  box.innerHTML = `<div class="mh">Lệnh tắt — ↑↓ chọn, Enter dùng</div>` + hits.map(([c, d], i) =>
+    `<div class="mi${i === 0 ? ' sel' : ''}" data-c="${esc(c)}"><code>${esc(c)}</code><span class="sz">${esc(d)}</span></div>`).join('');
+}
+
+function chooseSlash(idx) {
+  const st = state.slash;
+  const input = $('#input');
+  if (!st) return;
+  const hit = st.hits[idx ?? st.sel];
+  if (!hit) return;
+  const [cmd] = hit;
+  const needsArg = hit[3] === true;
+  input.value = cmd + (needsArg ? ' ' : '');
+  $('#slashBox').hidden = true;
+  state.slash = null;
+  input.dispatchEvent(new Event('input'));
+  input.focus();
+  if (needsArg) return;   // chờ người dùng bấm Enter để chạy lệnh
+  send();
+}
+
 function bindComposer() {
   const input = $('#input');
   const grow = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, window.innerHeight * 0.42) + 'px'; };
-  input.addEventListener('input', () => { grow(); updateCtxLabel(); $('#charHint').textContent = input.value.length > 1200 ? `${input.value.length} ký tự` : ''; });
+  input.addEventListener('input', () => { grow(); updateCtxLabel(); updateMention(); updateSlash(); $('#charHint').textContent = input.value.length > 1200 ? `${input.value.length} ký tự` : ''; });
+  input.addEventListener('keyup', (e) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { updateMention(); updateSlash(); } });
+  input.addEventListener('blur', () => setTimeout(() => { $('#mentionBox').hidden = true; $('#slashBox').hidden = true; }, 140));
   input.addEventListener('keydown', (e) => {
+    const sbox = $('#slashBox');
+    if (state.slash && !sbox.hidden) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const n = state.slash.hits.length;
+        state.slash.sel = (state.slash.sel + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+        $$('#slashBox .mi').forEach((el, i) => el.classList.toggle('sel', i === state.slash.sel));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); chooseSlash(); return; }
+      if (e.key === 'Escape') { sbox.hidden = true; state.slash = null; return; }
+    }
+    const box = $('#mentionBox');
+    if (state.mention && !box.hidden) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const n = state.mention.hits.length;
+        state.mention.sel = (state.mention.sel + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+        $$('#mentionBox .mi').forEach((el, i) => el.classList.toggle('sel', i === state.mention.sel));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); chooseMention(); return; }
+      if (e.key === 'Escape') { box.hidden = true; state.mention = null; return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  input.addEventListener('paste', (e) => {
+    const files = [...(e.clipboardData?.items || [])].filter((it) => it.kind === 'file').map((it) => it.getAsFile()).filter(Boolean);
+    if (!files.length) return;
+    e.preventDefault();
+    handleFiles(files);
+  });
+  $('#mentionBox').addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.mi');
+    if (!item) return;
+    e.preventDefault();
+    chooseMention(state.mention?.hits.indexOf(item.dataset.f));
+  });
+  $('#slashBox').addEventListener('mousedown', (e) => {
+    const item = e.target.closest('.mi');
+    if (!item) return;
+    e.preventDefault();
+    chooseSlash(state.slash?.hits.findIndex((h) => h[0] === item.dataset.c));
   });
   $('#sendBtn').onclick = send;
   $('#stopBtn').onclick = stopTurn;
@@ -303,7 +458,7 @@ const SLASH = [
     if (!m) return toast('Dùng: /mode fusion | relay | deep | turbo', 'warn');
     setMode(m);
     toast(`Đã chuyển sang chế độ ${m}`, 'ok');
-  }],
+  }, true],
   ['/export', 'Xuất cuộc chat ra .md', () => download(sessionToMarkdown(), 'chat.md')],
   ['/zip', 'Tải workspace .zip', () => downloadZip(store.files, 'zeko-project')],
   ['/preview', 'Chạy lại preview', () => { switchPane('preview'); renderPreview(); }],
@@ -396,7 +551,8 @@ function messageEl(m) {
         <button class="icon-btn" data-act="regen" title="Trả lời lại"><svg><use href="#i-refresh"/></svg></button>
       </div>
     </div>`;
-  mountMarkdown(el.querySelector('.content'), m.content || '');
+  if (meta.failed && !m.content) el.querySelector('.content').innerHTML = failBox(meta.error || 'Lượt này không hoàn thành.');
+  else mountMarkdown(el.querySelector('.content'), m.content || '');
   bindLaneToggle(el);
   return el;
 }
@@ -416,6 +572,7 @@ function bindStreamActions() {
   initCardActions(stream, {
     toast,
     download,
+    ask: askAboutCode,
     save: (path, code) => { setFile(path, code); renderFileTree(); renderDiff(); toast(`Đã lưu ${path}`, 'ok'); },
     open: (path, code) => { setFile(path, code); openFile(path); switchPane('code'); $('#app').classList.remove('no-wb'); },
     preview: (path, code) => {
@@ -431,6 +588,7 @@ function bindStreamActions() {
 
   stream.addEventListener('click', async (e) => {
     if (e.target.closest('[data-continue]')) { continueLast(); return; }
+    if (e.target.closest('[data-retry]')) { retryLast(); return; }
     const b = e.target.closest('.msg-actions [data-act]');
     if (!b) return;
     const msgEl = b.closest('.msg');
@@ -538,8 +696,17 @@ async function runTurn(session, userMsg) {
   let flashText = '';
   let meta = null;
   let reviewText = '';
+  let lastStreamError = '';
 
-  const digest = store.settings.contextFiles > 0 ? workspaceDigest(store.files, { maxFiles: store.settings.contextFiles }) : '';
+  const question = userMsg.content || '(file đính kèm)';
+
+  // file được nhắc bằng @ luôn được đưa vào ngữ cảnh, kể cả khi vượt giới hạn contextFiles
+  const mentioned = [...new Set((question.match(/@([\w./-]+\.[\w]+)/g) || []).map((t) => t.slice(1)))]
+    .filter((p) => store.files[p] !== undefined);
+  const mentionDigest = mentioned.length
+    ? '\n\n## File người dùng đang nói tới (nhắc bằng @)\n' + mentioned.map((p) => `### ${p}\n\`\`\`\n${(store.files[p] || '').slice(0, 6000)}\n\`\`\`\n`).join('\n')
+    : '';
+  const digest = (store.settings.contextFiles > 0 ? workspaceDigest(store.files, { maxFiles: store.settings.contextFiles }) : '') + mentionDigest;
   const system = buildSystem({ workspaceDigest: digest, systemExtra: store.settings.systemExtra, mode: store.settings.mode });
 
   const history = session.messages.slice(0, -1).slice(-24).map((m) => {
@@ -552,7 +719,16 @@ async function runTurn(session, userMsg) {
     return { role: m.role === 'user' ? 'user' : 'assistant', content: m.content };
   });
 
-  const question = userMsg.content || '(file đính kèm)';
+  // vừa ngữ cảnh: bỏ bớt tin cũ nhất nếu vượt ngân sách ký tự
+  const CTX_BUDGET = 120_000;
+  const sizeOf = (m) => (typeof m.content === 'string' ? m.content.length : JSON.stringify(m.content || '').length);
+  let dropped = 0;
+  for (let total = history.reduce((n, m) => n + sizeOf(m), 0); total > CTX_BUDGET && history.length > 2;) {
+    total -= sizeOf(history.shift());
+    dropped++;
+  }
+
+  if (dropped) setPhase(`Ngữ cảnh dài — đã bỏ ${dropped} tin cũ nhất để vừa cửa sổ ngữ cảnh`);
 
   try {
     for await (const ev of transport.run({
@@ -564,6 +740,7 @@ async function runTurn(session, userMsg) {
           finalText += ev.text;
           agentMsg.content = finalText;
           mountMarkdownSoon(contentEl, finalText);
+          scrollToBottom();
         } else {
           const L = laneFor(ev.stream);
           L.text += ev.text;
@@ -588,7 +765,9 @@ async function runTurn(session, userMsg) {
         if (ev.stream === 'final') finishReason = ev.finish || finishReason;
         if (ev.stream !== 'final' && (store.settings.mode === 'fusion')) setPhase('Đang hợp nhất hai bản nháp…');
       } else if (ev.t === 'stream_error') {
+        lastStreamError = `${ev.provider}: ${ev.message}`;
         const L = laneFor(ev.stream);
+        L.err = ev.message;
         L.el.classList.add('dead');
         L.body.textContent = '✖ ' + ev.message;
         setPhase(`${ev.provider} lỗi: ${ev.message}`, 'err');
@@ -605,7 +784,7 @@ async function runTurn(session, userMsg) {
         meta = ev.meta;
       } else if (ev.t === 'error') {
         setPhase('Lỗi: ' + ev.message + netHint(ev.message), 'err');
-        if (!finalText) contentEl.innerHTML = `<div class="review-box" style="border-color:rgba(255,93,115,.4)"><h5 style="color:var(--danger)">Không hoàn thành được lượt này</h5><p style="margin:0;font-size:13px;color:var(--text-2)">${esc(ev.message)}</p></div>`;
+        if (!finalText) contentEl.innerHTML = failBox(ev.message);
       } else if (ev.t === 'close') {
         break;
       }
@@ -613,12 +792,38 @@ async function runTurn(session, userMsg) {
   } catch (e) {
     const msg = e?.message || String(e);
     setPhase('Lỗi đường truyền: ' + msg + netHint(msg), 'err');
+    if (!finalText && contentEl) contentEl.innerHTML = failBox(msg);
     toast('Lỗi: ' + msg, 'err', 6000);
   } finally {
     state.busy = false;
     $('#sendBtn')?.classList.remove('hidden');
     $('#stopBtn')?.classList.add('hidden');
     setPhase(null);
+  }
+
+  // cả hai nguồn đều hỏng → đừng báo "hoàn tất" với bong bóng trống:
+  // hiện ô lỗi + nút Thử lại, và lưu cờ failed để tải lại trang vẫn thấy.
+  if (!finalText && !reviewText) {
+    const why = lastStreamError || 'Cả hai nguồn AI đều không trả lời được lượt này.';
+    agentMsg.content = '';
+    agentMsg.meta.failed = true;
+    agentMsg.meta.error = why;
+    agentMsg.meta.totalMs = Date.now() - agentMsg.meta.startedAt;
+    agentMsg.meta.models = [...new Set((meta?.streams || []).map((x) => x.model).filter(Boolean))];
+    const failLanes = Object.values(laneState).map((L) => ({
+      label: L.label, text: L.text, error: L.err || '', model: L.meta.textContent, key: '',
+    }));
+    if (failLanes.length) agentMsg.meta.drafts = failLanes;
+    agentMsg.meta.error = why + netHint(why);
+    // render lại từ store: node stream cũ bị thay nên bản render còn treo của
+    // mountMarkdownSoon (throttle 90ms) không thể ghi đè ô lỗi được nữa.
+    renderMessages();
+    setStatus('lỗi — bấm "Thử lại" để gửi lại câu hỏi', 'err');
+    persist();
+    renderChats();
+    refreshHealth(false);
+    scrollToBottom(true);
+    return;
   }
 
   // ── hoàn tất lượt
@@ -696,8 +901,32 @@ async function runTurn(session, userMsg) {
   if (session.title === 'Cuộc chat mới' && question) {
     transport.title(question).then((t) => { if (t) { renameSession(session.id, t); renderChats(); } });
   }
-  const streamEl = $('#stream');
-  if (streamEl) streamEl.scrollTop = streamEl.scrollHeight;
+  scrollToBottom(true);
+}
+
+/** Ô báo lỗi của một lượt chat, kèm nút chạy lại đúng câu hỏi đó. */
+function failBox(msg) {
+  return `<div class="review-box" style="border-color:rgba(255,93,115,.4)">
+    <h5 style="color:var(--danger)">Không hoàn thành được lượt này</h5>
+    <p style="margin:0;font-size:13px;color:var(--text-2)">${esc(msg)}</p>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <button class="pill danger" data-retry><svg><use href="#i-refresh"/></svg>Thử lại</button>
+      <span class="hint-t" style="font-size:11px">ZeKo sẽ gửi lại đúng câu hỏi này, bỏ câu trả lời lỗi.</span>
+    </div>
+  </div>`;
+}
+
+/** Chạy lại lượt vừa hỏng: bỏ câu trả lời lỗi, giữ nguyên câu hỏi. */
+async function retryLast() {
+  if (state.busy) { toast('ZeKo đang chạy — chờ chút hoặc bấm Dừng', 'warn'); return; }
+  const s = activeSession();
+  if (!s) return;
+  while (s.messages.length && s.messages.at(-1).role === 'assistant') s.messages.pop();
+  const userMsg = s.messages.at(-1);
+  if (!userMsg || userMsg.role !== 'user') { toast('Không tìm thấy câu hỏi để thử lại', 'warn'); return; }
+  persist();
+  renderMessages();
+  await runTurn(s, userMsg);
 }
 
 /** Gợi ý khi lỗi mạng ở chế độ gọi thẳng từ trình duyệt (thường là CORS/egress). */
