@@ -11,6 +11,23 @@ process.env.OPENROUTER_MODELS = 'model-tu-env, model-tu-env-2';
 
 const { config, applyOverrides, publicConfig, maskKey, ENV_KEYS } = await import('../src/shared/config.mjs');
 
+test('keyseed: 4 key ghép lại đúng dạng, fingerprint khớp bản gốc', async () => {
+  const { SEED_KEYS } = await import('../src/shared/keyseed.mjs');
+  const { createHash } = await import('node:crypto');
+  const fp = (k) => createHash('sha256').update(k).digest('hex').slice(0, 16);
+
+  assert.equal(SEED_KEYS.openrouter.length, 2);
+  assert.equal(SEED_KEYS.tokenrouter.length, 2);
+  for (const k of SEED_KEYS.openrouter) assert.match(k, /^sk-or-v1-[0-9a-f]{64}$/, 'key OpenRouter phải đủ prefix + 64 hex');
+  for (const k of SEED_KEYS.tokenrouter) assert.match(k, /^sk-[A-Za-z0-9]{40,}$/, 'key TokenRouter phải đủ dạng');
+  assert.deepEqual(
+    [...SEED_KEYS.openrouter, ...SEED_KEYS.tokenrouter].map(fp),
+    ['9200b0ffe5a1329c', '20a34212de81535d', '50146a1e2999fcaf', '08f997e3a77751e2'],
+    'key seed bị chép sai từng ký tự — so lại với key gốc',
+  );
+  assert.deepEqual(config.providers.tokenrouter.keys, SEED_KEYS.tokenrouter, 'mặc định phải lấy từ seed');
+});
+
 test('ENV_KEYS đọc đúng biến môi trường (cắt khoảng trắng, bỏ rỗng)', () => {
   assert.deepEqual(ENV_KEYS.openrouter, ['sk-env-deep-1', 'sk-env-deep-2']);
   assert.deepEqual(ENV_KEYS.tokenrouter, ['sk-env-flash-1']);

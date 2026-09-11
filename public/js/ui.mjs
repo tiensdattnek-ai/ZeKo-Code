@@ -15,9 +15,12 @@ export function toast(msg, kind = 'info', ms = 2600) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.innerHTML = `<svg><use href="#${TICON[kind] || 'i-bolt'}"/></svg><span>${esc(msg)}</span>`;
+  el.onclick = () => el.remove();
   $('#toasts').append(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(14px)'; el.style.transition = '.25s'; }, ms - 260);
-  setTimeout(() => el.remove(), ms);
+  if (ms > 0) { // ms = 0 → toast dính lại tới khi người dùng bấm (dùng cho lỗi cấu hình)
+    setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(14px)'; el.style.transition = '.25s'; }, ms - 260);
+    setTimeout(() => el.remove(), ms);
+  }
 }
 
 /* ─────────────────────────── modal ─────────────────────────── */
@@ -96,7 +99,7 @@ export function openSettings() {
         <div class="field"><label style="font-size:10.5px">Model ID (ưu tiên từ trái sang phải, phân cách bằng dấu phẩy)</label>
           <input data-p="${p.id}" data-f="models" value="${esc((p.models || []).join(', '))}" /></div>
         <div class="field" style="margin-bottom:4px"><label style="font-size:10.5px">API keys</label>
-          <div class="keys" data-p="${p.id}">${(p.keys || []).map((k) => keyRow(k)).join('')}</div>
+          <div class="keys" data-p="${p.id}">${(p.keys?.length ? p.keys : ['', '']).map((k) => keyRow(k)).join('')}</div>
           <button class="btn ghost" data-addkey="${p.id}" style="padding:6px 10px;font-size:12px"><svg><use href="#i-plus"/></svg>Thêm key</button>
           <button class="btn ghost" data-probe="${p.id}" style="padding:6px 10px;font-size:12px"><svg><use href="#i-refresh"/></svg>Dò model khả dụng</button>
         </div>

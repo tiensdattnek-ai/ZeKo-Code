@@ -413,7 +413,7 @@ export class FusionEngine {
           else if (ev.type === 'reasoning') q.push({ t: 'reason', stream: streamLabel, text: ev.text, provider: pid });
           else if (ev.type === 'done') { info = ev; }
         }
-        q.push({ t: 'stream_end', stream: streamLabel, provider: pid, model: info?.model, key: info?.key, usage: info?.usage, ms: info?.ms, chars: text.length });
+        q.push({ t: 'stream_end', stream: streamLabel, provider: pid, model: info?.model, key: info?.key, usage: info?.usage, ms: info?.ms, chars: text.length, finish: info?.finish });
         meta.streams.push({ stream: streamLabel, provider: pid, model: info?.model, key: info?.key, usage: info?.usage, ms: info?.ms, chars: text.length });
       } catch (e) {
         q.push({ t: 'stream_error', stream: streamLabel, provider: pid, message: e?.message || String(e) });

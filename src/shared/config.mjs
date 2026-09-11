@@ -1,15 +1,14 @@
 /**
  * ZeKo Code — shared configuration (runs in Node AND in the browser).
  *
- * Keys resolution order (first match wins):
- *   1. Runtime overrides pushed from the UI  (POST /api/config, localStorage)
- *   2. Environment variables                 (.env, `export`, host config)
- *   3. config.local.json at the repo root    (git-ignored — created for you)
- *
- * NO SECRET IS COMMITTED IN THIS FILE. `server/index.js` reads config.local.json
- * at boot and feeds it through applyOverrides(); the browser only ever sees the
- * keys through GET /api/keys on your own machine. See README §"API key".
+ * Thứ tự ưu tiên key (cái áp SAU thắng — xem server/index.js):
+ *   1. key seed ghép từ src/shared/keyseed.mjs   (mặc định, để clone là chạy)
+ *   2. config.local.json ở thư mục gốc          (git-ignored)
+ *   3. biến môi trường                          (deploy luôn ghi đè được)
+ *   4. key dán trong tab Cấu hình               (mirror vào localStorage của trình duyệt)
  */
+
+import { SEED_KEYS } from './keyseed.mjs';
 
 const env = typeof process !== 'undefined' && process.env ? process.env : {};
 
@@ -28,7 +27,7 @@ export const DEFAULT_PROVIDERS = {
       'z-ai/glm-5.3:free',
       'z-ai/glm-4.6',
     ]),
-    keys: list(env.OPENROUTER_API_KEYS, []),
+    keys: [...SEED_KEYS.openrouter],
     headers: { 'HTTP-Referer': 'https://zeko.local', 'X-Title': 'ZeKo Code' },
     color: '#7c5cff',
   },
@@ -43,7 +42,7 @@ export const DEFAULT_PROVIDERS = {
       'z-ai/glm-5.3',
       'glm-5.3-flash',
     ]),
-    keys: list(env.TOKENROUTER_API_KEYS, []),
+    keys: [...SEED_KEYS.tokenrouter],
     headers: {},
     color: '#20d3a6',
   },

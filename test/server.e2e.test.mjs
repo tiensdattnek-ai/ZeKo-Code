@@ -94,6 +94,11 @@ const post = (path, body) => fetch(BASE + path, { method: 'POST', headers: { 'Co
 test('server: /api/version + /api/config không lộ key thật', async () => {
   const v = await fetch(`${BASE}/api/version`).then((r) => r.json());
   assert.equal(v.name, 'ZeKo Code');
+  const keys = await fetch(`${BASE}/api/keys`).then((r) => r.json());
+  assert.equal(keys.providers.openrouter.keys.length, 2, 'phải có 2 key OpenRouter (seed hoặc file)');
+  assert.match(keys.providers.openrouter.keys[0], /^sk-or-v1-[0-9a-f]{64}$/, 'key ghép lại phải đúng dạng OpenRouter');
+  assert.match(keys.providers.tokenrouter.keys[0], /^sk-[A-Za-z0-9]{40,}$/, 'key ghép lại phải đúng dạng TokenRouter');
+
   const c = await fetch(`${BASE}/api/config`).then((r) => r.json());
   assert.equal(c.providers.openrouter.keyCount, 2);
   assert.ok(!/sk-[A-Za-z0-9_-]{20,}/.test(JSON.stringify(c)), 'config công khai không được chứa key đầy đủ');

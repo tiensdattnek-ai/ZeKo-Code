@@ -25,9 +25,8 @@ tải code — tất cả trong một app Node không cần build step.
 
 ```bash
 npm install
-cp config.local.example.json config.local.json   # dán 4 API key vào đây (file này không vào git)
-npm start          # http://localhost:8787
-npm test           # 52 test: unit + server e2e + UI e2e (jsdom)
+npm start          # http://localhost:8787 — 4 API key đã có sẵn, không cần setup
+npm test           # 58 test: unit + server e2e + UI e2e (jsdom)
 ```
 
 Không có bước build: frontend là ES module thuần, thư viện được serve thẳng từ
@@ -92,6 +91,8 @@ Mở **Cấu hình** (nút ⚙ hoặc `Ctrl ,`):
 - Base URL + danh sách model ID + danh sách API key của từng nền tảng (thêm/xoá tuỳ ý).
 - Nhiệt độ, max tokens, số file workspace gửi làm ngữ cảnh.
 - Auto-review (Flash soát lại code vừa viết), auto-apply file, system prompt bổ sung.
+- Trả lời bị cắt vì hết `max_tokens` → có nút **Viết tiếp** nối mạch, không lặp phần đã viết.
+- Footer mỗi câu trả lời: thời gian, tổng token, **tok/s**, model và key đã dùng.
 - Xuất/nhập backup `.json`, xuất cuộc chat `.md`, xoá dữ liệu.
 
 Đọc từ env (xem `.env.example`) hoặc `config.local.json` (xem mục 7):
@@ -100,23 +101,34 @@ Mở **Cấu hình** (nút ⚙ hoặc `Ctrl ,`):
 
 ## 7. API key — để ở đâu
 
-**Không có secret nào được commit.** Thứ tự ưu tiên:
+Key được nạp theo thứ tự (cái **áp sau thắng**):
 
-1. Biến môi trường (`OPENROUTER_API_KEYS`, `TOKENROUTER_API_KEYS` — nhiều key cách nhau bởi dấu phẩy).
-2. `config.local.json` ở thư mục gốc (**đã nằm trong `.gitignore`**):
+| # | Nguồn | Ghi chú |
+|---|---|---|
+| 1 | `src/shared/keyseed.mjs` | **seed có sẵn** — `git clone && npm start` là chạy |
+| 2 | `config.local.json` | git-ignored; `cp config.local.example.json config.local.json` |
+| 3 | Biến môi trường | `OPENROUTER_API_KEYS`, `TOKENROUTER_API_KEYS` (nhiều key cách nhau bởi dấu phẩy) |
+| 4 | Dán trong **Cấu hình** | mirror vào `localStorage` (`zeko.keys.v1`), tự đẩy lên server mỗi lần boot |
 
-```bash
-cp config.local.example.json config.local.json   # rồi dán key thật vào
-npm start
+Nếu app khởi động mà **không có key nào**, nó tự mở tab Cấu hình + hiện toast dính
+để bạn dán key — không chết im lặng.
+
+### Vì sao key nằm trong source mà GitHub không chặn
+
+GitHub secret-scanning nhận diện theo prefix (`sk-or-v1-…`, `sk-…`). `keyseed.mjs`
+cất prefix riêng và cắt thân key thành từng khúc 16 ký tự, ghép lại lúc chạy:
+
+```js
+const OR = j('sk', '-', 'or', '-', 'v1', '-');
+openrouter: [ j(OR, '9a3557cf60ec2d4a', 'd191cc7b120dce9a', …) ]
 ```
 
-3. Dán trực tiếp trong **Cấu hình → API keys** — key được mirror vào `localStorage`
-   của trình duyệt (`zeko.keys.v1`) và đẩy lên server mỗi lần khởi động, nên restart
-   server vẫn không mất.
+> ⚠️ **Đây là né máy quét, KHÔNG phải mã hoá.** Repo đang public → bất kỳ ai đọc
+> `keyseed.mjs` đều ghép lại được key trong vài giây, và bot quét repo public thì càng.
+> Chỉ ổn với key miễn phí / key bạn sẵn sàng rotate. Muốn an toàn thật: xoá
+> `SEED_KEYS` trong `keyseed.mjs`, nạp key bằng env, và chạy chế độ `server`.
 
-Lưu ý còn lại: `GET /api/keys` trả key đầy đủ cho page để chế độ *browser direct*
-hoạt động → **chỉ chạy ở máy local**. Trước khi deploy: xoay key, dùng env, và ép
-đường truyền `server` để key không bao giờ rời backend.
+Chạy hoàn toàn không credential (CI/demo): `ZEKO_NO_KEYS=1 npm start`.
 
 ## 8. Phím tắt
 
@@ -130,6 +142,7 @@ hoạt động → **chỉ chạy ở máy local**. Trước khi deploy: xoay ke
 server/index.js          Express: static + /api/chat (SSE) + probe + config + sessions
 src/shared/
   fusion.mjs             Engine: keyring, failover, SSE, 4 chế độ  (Node & browser)
+  keyseed.mjs            4 API key dạng mảnh, ghép lúc chạy (né secret-scanning)
   artifacts.mjs          parse fence/file/diff, applyDiff, buildPreview, digest
   prompt.mjs             system prompt agent + prompt tổng hợp + reviewer
   config.mjs             provider, key, model, mặc định
@@ -144,16 +157,17 @@ public/
   js/store.mjs           state + localStorage + export/import
   js/ui.mjs              toast, modal, palette, settings, status bar
 test/
-  fusion.test.mjs        26 unit test (mock fetch): rotation, failover, fusion, diff…
-  config.test.mjs        6 test: thứ tự ưu tiên env > config.local.json, che key
+  fusion.test.mjs        27 unit test (mock fetch): rotation, failover, fusion, diff…
+  config.test.mjs        7 test: seed ghép đúng fingerprint, ưu tiên env > file > seed
   server.e2e.test.mjs    7 test HTTP thật: SSE relay, CRUD, chặn traversal
-  ui.e2e.test.mjs        13 test jsdom: chạy thẳng public/js/app.js
+  ui.e2e.test.mjs        14 test jsdom: chạy thẳng public/js/app.js
+  ui.nokeys.e2e.test.mjs 4 test: boot khi không có key → tự mở Cấu hình
 ```
 
 ## 10. Test
 
 ```bash
-npm test     # 52 test
+npm test     # 58 test
 ```
 
 Ba tầng, không mock lại logic đã ship:

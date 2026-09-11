@@ -32,8 +32,14 @@ const HOST = process.env.HOST || '0.0.0.0';
  * API key lives in `config.local.json` (git-ignored) or in env vars — never in
  * the committed source. Env wins, because it is what a host/deploy provides.
  */
+/**
+ * Thứ tự áp: seed (đã có sẵn trong config.mjs) → config.local.json → env.
+ * `ZEKO_NO_KEYS=1` chạy hoàn toàn không credential (CI / demo / test).
+ */
 const LOCAL_CONFIG = join(ROOT, 'config.local.json');
-if (existsSync(LOCAL_CONFIG)) {
+if (process.env.ZEKO_NO_KEYS === '1') {
+  for (const p of Object.values(config.providers)) p.keys = [];
+} else if (existsSync(LOCAL_CONFIG)) {
   try {
     applyOverrides(JSON.parse(await readFile(LOCAL_CONFIG, 'utf8')));
   } catch (e) {
@@ -42,7 +48,7 @@ if (existsSync(LOCAL_CONFIG)) {
 }
 // env áp cuối cùng → deploy luôn ghi đè được file local
 const envPatch = Object.fromEntries(Object.entries(ENV_KEYS).filter(([, k]) => k.length).map(([id, k]) => [id, { keys: k }]));
-if (Object.keys(envPatch).length) applyOverrides({ providers: envPatch });
+if (Object.keys(envPatch).length && process.env.ZEKO_NO_KEYS !== '1') applyOverrides({ providers: envPatch });
 
 const engine = new FusionEngine({ providers: config.providers });
 const app = express();

@@ -64,7 +64,14 @@ async function boot() {
     toast('Server không ra được Internet → đang gọi thẳng OpenRouter/TokenRouter từ trình duyệt.', 'info', 5200);
   }
   const live = countLive();
-  if (live === 0) setStatus('không có API key nào khả dụng — mở Cấu hình', 'bad');
+  const totalKeys = $$('#sbKeys .sb-key').length;
+  if (!totalKeys) {
+    setStatus('chưa có API key nào', 'bad');
+    openSettings();
+    toast('Chưa có API key — dán key OpenRouter & TokenRouter vào đây rồi bấm Lưu', 'warn', 0);
+  } else if (live === 0) {
+    setStatus('không có API key nào khả dụng — mở Cấu hình', 'bad');
+  }
   startHealthLoop();
   setTimeout(() => $('#input')?.focus(), 200);
 }
@@ -423,6 +430,7 @@ function bindStreamActions() {
   });
 
   stream.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-continue]')) { continueLast(); return; }
     const b = e.target.closest('.msg-actions [data-act]');
     if (!b) return;
     const msgEl = b.closest('.msg');
@@ -480,8 +488,8 @@ async function send() {
 async function runTurn(session, userMsg) {
   state.busy = true;
   state.abort = new AbortController();
-  $('#sendBtn').classList.add('hidden');
-  $('#stopBtn').classList.remove('hidden');
+  $('#sendBtn')?.classList.add('hidden');
+  $('#stopBtn')?.classList.remove('hidden');
   setStatus('đang suy nghĩ…', 'busy');
 
   const agentMsg = { id: 'a' + Date.now().toString(36), role: 'assistant', content: '', review: '', meta: { mode: store.settings.mode, startedAt: Date.now() }, at: Date.now() };
@@ -525,6 +533,7 @@ async function runTurn(session, userMsg) {
   };
 
   let finalText = '';
+  let finishReason = null;
   let deepText = '';
   let flashText = '';
   let meta = null;
@@ -576,6 +585,7 @@ async function runTurn(session, userMsg) {
       } else if (ev.t === 'stream_end') {
         const L = laneState[ev.stream];
         if (L) { L.el.querySelector('.dot').style.animation = 'none'; L.el.querySelector('.dot').style.background = 'var(--ok)'; }
+        if (ev.stream === 'final') finishReason = ev.finish || finishReason;
         if (ev.stream !== 'final' && (store.settings.mode === 'fusion')) setPhase('Đang hợp nhất hai bản nháp…');
       } else if (ev.t === 'stream_error') {
         const L = laneFor(ev.stream);
@@ -606,8 +616,8 @@ async function runTurn(session, userMsg) {
     toast('Lỗi: ' + msg, 'err', 6000);
   } finally {
     state.busy = false;
-    $('#sendBtn').classList.remove('hidden');
-    $('#stopBtn').classList.add('hidden');
+    $('#sendBtn')?.classList.remove('hidden');
+    $('#stopBtn')?.classList.add('hidden');
     setPhase(null);
   }
 
@@ -636,18 +646,24 @@ async function runTurn(session, userMsg) {
   }
 
   // collapse lanes + footer
+  const finalStream = (meta?.streams || []).filter((x) => x.stream === 'final' && x.ms).pop();
+  const tokPerSec = finalStream?.usage?.completion_tokens && finalStream.ms
+    ? Math.round((finalStream.usage.completion_tokens / finalStream.ms) * 1000) : 0;
+  const speedHtml = tokPerSec ? `<i class="sep"></i><span>${tokPerSec} tok/s</span>` : '';
+  const contHtml = finishReason === 'length'
+    ? `<i class="sep"></i><button class="pill" data-continue title="Câu trả lời bị cắt vì hết max_tokens"><svg><use href="#i-undo"/></svg>Viết tiếp</button>` : '';
   const lanesEl = el.querySelector('.lanes');
   if (lanesEl) {
     lanesEl.classList.add('collapsed');
     const foot = document.createElement('div');
     foot.className = 'msg-foot';
-    foot.innerHTML = `<span>${(agentMsg.meta.totalMs / 1000).toFixed(1)}s</span><i class="sep"></i><span>${(agentMsg.meta.tokens || 0).toLocaleString('vi-VN')} token</span><i class="sep"></i><span>${esc(models.join(' + '))}</span><i class="sep"></i><button class="pill" data-drafts style="padding:3px 8px">Xem bản nháp</button>`;
+    foot.innerHTML = `<span>${(agentMsg.meta.totalMs / 1000).toFixed(1)}s</span><i class="sep"></i><span>${(agentMsg.meta.tokens || 0).toLocaleString('vi-VN')} token</span>${speedHtml}<i class="sep"></i><span>${esc(models.join(' + '))}</span><i class="sep"></i><button class="pill" data-drafts style="padding:3px 8px">Xem bản nháp</button>${contHtml}`;
     el.querySelector('.content').after(foot);
     bindLaneToggle(el);
   } else {
     const foot = document.createElement('div');
     foot.className = 'msg-foot';
-    foot.innerHTML = `<span>${(agentMsg.meta.totalMs / 1000).toFixed(1)}s</span><i class="sep"></i><span>${(agentMsg.meta.tokens || 0).toLocaleString('vi-VN')} token</span><i class="sep"></i><span>${esc(models.join(' + '))}</span>`;
+    foot.innerHTML = `<span>${(agentMsg.meta.totalMs / 1000).toFixed(1)}s</span><i class="sep"></i><span>${(agentMsg.meta.tokens || 0).toLocaleString('vi-VN')} token</span>${speedHtml}<i class="sep"></i><span>${esc(models.join(' + '))}</span>${contHtml}`;
     el.querySelector('.content').after(foot);
   }
   if (meta) {
@@ -680,7 +696,8 @@ async function runTurn(session, userMsg) {
   if (session.title === 'Cuộc chat mới' && question) {
     transport.title(question).then((t) => { if (t) { renameSession(session.id, t); renderChats(); } });
   }
-  $('#stream').scrollTop = $('#stream').scrollHeight;
+  const streamEl = $('#stream');
+  if (streamEl) streamEl.scrollTop = streamEl.scrollHeight;
 }
 
 /** Gợi ý khi lỗi mạng ở chế độ gọi thẳng từ trình duyệt (thường là CORS/egress). */
@@ -708,11 +725,26 @@ function applyArtifacts(text) {
   return n;
 }
 
+/** Hết max_tokens giữa chừng → nối tiếp mạch, không lặp phần đã viết. */
+function continueLast() {
+  if (state.busy) return toast('ZeKo đang trả lời — bấm Dừng nếu muốn ngắt', 'warn');
+  const s = activeSession();
+  if (![...s.messages].reverse().some((m) => m.role === 'assistant')) return;
+  const userMsg = {
+    id: 'u' + Date.now().toString(36), role: 'user', at: Date.now(),
+    content: '(Viết tiếp phần còn lại của câu trả lời trước. Không lặp lại phần đã viết, giữ đúng giao thức artifact, in FULL file nếu file chưa xong.)',
+  };
+  s.messages.push(userMsg);
+  persist();
+  renderMessages();
+  runTurn(s, userMsg);
+}
+
 function stopTurn() {
   state.abort?.abort();
   state.busy = false;
-  $('#sendBtn').classList.remove('hidden');
-  $('#stopBtn').classList.add('hidden');
+  $('#sendBtn')?.classList.remove('hidden');
+  $('#stopBtn')?.classList.add('hidden');
   setStatus('đã dừng', '');
   toast('Đã dừng lượt này', 'info');
 }

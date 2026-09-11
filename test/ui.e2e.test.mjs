@@ -34,12 +34,12 @@ const ANSWER = [
   '```',
 ].join('\n');
 
-const sseText = (text) => {
+const sseText = (text, finish = 'stop') => {
   const enc = new TextEncoder();
   const chunks = [
     `data: ${JSON.stringify({ choices: [{ delta: { content: text.slice(0, 20) } }] })}\n\n`,
     `data: ${JSON.stringify({ choices: [{ delta: { content: text.slice(20) } }] })}\n\n`,
-    `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 5, completion_tokens: 9, total_tokens: 14 } })}\n\n`,
+    `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: finish }], usage: { prompt_tokens: 5, completion_tokens: 9, total_tokens: 14 } })}\n\n`,
     'data: [DONE]\n\n',
   ];
   return {
@@ -96,6 +96,8 @@ before(async () => {
       };
     }
     const body = opts.body ? JSON.parse(opts.body) : {};
+    const flat = JSON.stringify(body.messages || []);
+    if (flat.includes('CẮT NGẮN')) return sseText('câu trả lời bị cắt giữa chừng vì hết token', 'length');
     const isSynthesis = /bộ tổng hợp/.test(body.messages?.[0]?.content || '');
     return sseText(isSynthesis ? ANSWER : 'bản nháp nhanh');
   };
@@ -352,4 +354,23 @@ test('cấu hình: mở modal, đổi chế độ + thêm API key rồi lưu xu�
   const h = await transport.health();
   assert.equal(h.tokenrouter.keys.length, 3, 'engine phải nạp key mới ngay');
   assert.equal(h.tokenrouter.keys[2].masked, '••••oi');
+});
+
+test('hết max_tokens: hiện nút "Viết tiếp" + tốc độ tok/s, bấm thì sinh lượt mới', async () => {
+  const before = $$('.msg').length;
+  const input = $('#input');
+  input.value = 'Viết bài thật dài, CẮT NGẮN giữa chừng';
+  input.dispatchEvent(new dom.window.Event('input'));
+  click($('#sendBtn'));
+
+  assert.ok(await wait(() => $$('.msg').length >= before + 2, 20000), 'phải có lượt trả lời mới');
+  assert.ok(await wait(() => !!$('[data-continue]'), 8000), 'phải hiện nút Viết tiếp khi finish_reason=length');
+  assert.match($('.msg.agent:last-of-type .msg-foot').textContent, /tok\/s/, 'footer phải hiện tốc độ');
+
+  click($('[data-continue]'));
+  assert.ok(await wait(() => $$('.msg').length >= before + 4, 20000), 'bấm Viết tiếp phải sinh thêm 1 lượt user + 1 lượt agent');
+  const { activeSession } = await import('../public/js/store.mjs');
+  const texts = activeSession().messages.map((m) => m.content);
+  assert.ok(texts.some((t) => /Viết tiếp phần còn lại/.test(t)), 'phải có tin nhắn nối mạch trong lịch sử');
+  assert.ok(await wait(() => /hoàn tất/.test($('#sbStatus').textContent), 15000), 'đợi lượt nối mạch kết thúc');
 });
